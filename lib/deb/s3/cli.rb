@@ -244,10 +244,10 @@ class Deb::S3::CLI < Thor
       end
 
       # upload the manifest
-      log("Uploading packages and new manifests to S3")
+      log("Uploading new manifests to S3")
       manifests.each_value do |manifest|
         begin
-          manifest.write_to_s3 { |f| sublog("Transferring #{f}") }
+          manifest.write_manifests_to_s3 { |f| sublog("Transferring #{f}") }
         rescue Deb::S3::Utils::AlreadyExistsError => e
           error("Uploading manifest failed because: #{e}")
         end
@@ -255,9 +255,24 @@ class Deb::S3::CLI < Thor
       end
       release.write_to_s3 { |f| sublog("Transferring #{f}") }
 
+      # release the lock and upload the packages (assuming their names are unique)
+      if options[:lock] && @lock_acquired
+        Deb::S3::Lock.unlock(options[:codename], component, options[:arch], options[:cache_control])
+        log("Lock released.")
+        early_release = true
+      end
+      log("Uploading packages to S3")
+      manifests.each_value do |manifest|
+        begin
+          manifest.write_packages_to_s3 { |f| sublog("Transferring #{f}") }
+        rescue Deb::S3::Utils::AlreadyExistsError => e
+          error("Uploading manifest failed because: #{e}")
+        end
+      end
+
       log("Update complete.")
     ensure
-      if options[:lock] && @lock_acquired
+      if !early_release && options[:lock] && @lock_acquired
         Deb::S3::Lock.unlock(options[:codename], component, options[:arch], options[:cache_control])
         log("Lock released.")
       end

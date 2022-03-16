@@ -99,9 +99,7 @@ class Deb::S3::Manifest
     @packages.collect { |pkg| pkg.generate(@codename) }.join("\n")
   end
 
-  def write_to_s3
-    manifest = self.generate
-
+  def write_packages_to_s3
     unless self.skip_package_upload
       # store any packages that need to be stored
       @packages_to_be_upload.each do |pkg|
@@ -109,6 +107,10 @@ class Deb::S3::Manifest
         s3_store(pkg.filename, pkg.url_filename(@codename), 'application/octet-stream; charset=binary', self.cache_control, self.fail_if_exists)
       end
     end
+  end
+
+  def write_manifests_to_s3
+    manifest = self.generate
 
     # generate the Packages file
     pkgs_temp = Tempfile.new("Packages")
@@ -129,7 +131,11 @@ class Deb::S3::Manifest
     s3_store(gztemp.path, f, 'application/x-gzip; charset=binary', self.cache_control)
     @files["#{@component}/binary-#{@architecture}/Packages.gz"] = hashfile(gztemp.path)
     gztemp.unlink
+  end
 
+  def write_to_s3(&printer)
+    write_packages_to_s3(&printer)
+    write_manifests_to_s3(&printer)
     nil
   end
 
