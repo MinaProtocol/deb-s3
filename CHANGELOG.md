@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.6] - 2022-04-08
+### Fixed
+* use Array#push instead of #append for better compatibility
+
 ## [0.11.5] - 2022-04-07
 ### Changed
 * packages are uploaded "atomically": transferred as temporary files, then

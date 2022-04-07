@@ -248,7 +248,7 @@ class Deb::S3::CLI < Thor
       log_action = lambda {|f| sublog("Transferring #{f}") }
       atomic_action = lambda {|f|
         log_action.call(f)
-        filenames_to_move.append(f)
+        filenames_to_move.push(f)
       }
 
       # upload the manifest
