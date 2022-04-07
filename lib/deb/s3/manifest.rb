@@ -104,7 +104,7 @@ class Deb::S3::Manifest
       # store any packages that need to be stored
       @packages_to_be_upload.each do |pkg|
         yield pkg.url_filename(@codename) if block_given?
-        s3_store(pkg.filename, pkg.url_filename(@codename), 'application/octet-stream; charset=binary', self.cache_control, self.fail_if_exists)
+        s3_atomic_store(pkg.filename, pkg.url_filename(@codename), 'application/octet-stream; charset=binary', self.cache_control, self.fail_if_exists)
       end
     end
   end

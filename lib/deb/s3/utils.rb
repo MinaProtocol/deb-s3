@@ -106,6 +106,36 @@ module Deb::S3::Utils
     end
   end
 
+  # Similar to s3_store, but uploads the file with a temporary filename instead,
+  # so the object is not visible with its final filename while being uploaded. 
+  # The files then need to be moved to their actual filename with
+  # s3_finish_atomic_store
+  def s3_atomic_store(path, filename=nil, content_type='application/octet-stream; charset=binary', cache_control=nil, fail_if_exists=false, suffix=".deb-s3-temp")
+    filename = File.basename(path) unless filename
+    # TODO: check that the filename does not exist
+    temp_filename = filename + suffix
+    s3_store(path, filename=temp_filename, content_type, cache_control, fail_if_exists)
+  end
+
+  # See s3_atomic_store
+  def s3_finish_atomic_store(filename, suffix=".deb-s3-temp")
+    temp_filename = filename + suffix
+    # Can only copy up to 5 Gb files
+    s3_copy(temp_filename, filename)
+    # There is no move is S3, only copy then delete.
+    s3_remove(temp_filename) 
+  end
+
+  def s3_copy(filename_from, filename_to)
+    full_from_path = Deb::S3::Utils.bucket + "/" + s3_path(filename_from)
+    Deb::S3::Utils.s3.copy_object(
+      :bucket => Deb::S3::Utils.bucket,
+      :acl => Deb::S3::Utils.access_policy,
+      :copy_source => full_from_path,
+      :key => s3_path(filename_to)
+    )
+  end
+
   def s3_remove(path)
     if s3_exists?(path)
       Deb::S3::Utils.s3.delete_object(

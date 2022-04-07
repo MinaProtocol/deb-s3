@@ -243,31 +243,44 @@ class Deb::S3::CLI < Thor
         end
       end
 
+      # Remember which files were moved to temporary filenames
+      filenames_to_move = []
+      log_action = lambda {|f| sublog("Transferring #{f}") }
+      atomic_action = lambda {|f|
+        log_action.call(f)
+        filenames_to_move.append(f)
+      }
+
       # upload the manifest
       log("Uploading new manifests to S3")
       manifests.each_value do |manifest|
         begin
-          manifest.write_manifests_to_s3 { |f| sublog("Transferring #{f}") }
+          manifest.write_manifests_to_s3 &log_action
         rescue Deb::S3::Utils::AlreadyExistsError => e
           error("Uploading manifest failed because: #{e}")
         end
         release.update_manifest(manifest)
       end
-      release.write_to_s3 { |f| sublog("Transferring #{f}") }
-
+      release.write_to_s3 &log_action
       # release the lock and upload the packages (assuming their names are unique)
       if options[:lock] && @lock_acquired
         Deb::S3::Lock.unlock(options[:codename], component, options[:arch], options[:cache_control])
         log("Lock released.")
         early_release = true
       end
-      log("Uploading packages to S3")
+      log("Uploading packages to S3 as temporary files")
       manifests.each_value do |manifest|
         begin
-          manifest.write_packages_to_s3 { |f| sublog("Transferring #{f}") }
+          manifest.write_packages_to_s3 &atomic_action
         rescue Deb::S3::Utils::AlreadyExistsError => e
           error("Uploading manifest failed because: #{e}")
         end
+      end
+
+      log("Moving temporary files to their final paths")
+      filenames_to_move.each do |f|
+        sublog("Moving #{f}")
+        Deb::S3::Utils.s3_finish_atomic_store(f)
       end
 
       log("Update complete.")
