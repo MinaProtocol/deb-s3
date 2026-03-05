@@ -315,7 +315,7 @@ class Deb::S3::CLI < Thor
   desc "show PACKAGE VERSION ARCH", "Shows information about a package."
 
   def show(package_name, version, arch)
-    if version.nil?
+    if package_name.nil?
       error "You must specify the name of the package to show."
     end
     if version.nil?
